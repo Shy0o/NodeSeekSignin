@@ -7,15 +7,11 @@ create Time: 2025-5-13 16:21:43
 Last Updated: 2025-10-2 15:30:00
 Author: G.E.N.G
 GitHub: https://github.com/wugeng20
-Description: 用于 NodeSeek 、DeepFlood 论坛的每日自动签到，支持消息推送通知（调用青龙系统通知API或钉钉机器人）。
+Description: 用于 NodeSeek 、DeepFlood 论坛的每日自动签到，支持呆呆面板消息推送。
 """
-import base64
-import hashlib
-import hmac
 import os
 import random
 import time
-import urllib.parse
 
 import cloudscraper
 
@@ -93,14 +89,6 @@ class EnvConfig:
     df_cookie = os.environ.get("DF_COOKIE", "")  # 用户Cookie
     df_random = os.environ.get("DF_RANDOM", "true").lower() == "true"  # 随机签到开关
     df_member_id = os.environ.get("DF_MEMBER_ID", "")  # 成员ID（从个人空间URL获取）
-
-    # 钉钉通知配置
-    dd_bot_enable = (
-        os.environ.get("DD_BOT_ENABLE", "false").lower() == "true"
-    )  # 钉钉开关
-    dd_bot_token = os.environ.get("DD_BOT_TOKEN", "")  # 机器人Token
-    dd_bot_secret = os.environ.get("DD_BOT_SECRET", "")  # 机器人密钥
-
 
 # 实例化配置对象
 env = EnvConfig()
@@ -298,41 +286,6 @@ class DeepFloodForum(BaseForum):
 # ==============================================
 # 消息通知模块（Notification Module）
 # ==============================================
-def send_dingtalk_message(token, secret, content):
-    """
-    发送消息到钉钉机器人
-
-    :param token: 钉钉机器人Token
-    :param secret: 钉钉机器人密钥
-    :param content: 消息内容
-    """
-    if not token:
-        print("钉钉机器人Token未配置，跳过推送")
-        return
-
-    try:
-        # 生成签名（钉钉机器人安全验证）
-        timestamp = str(round(time.time() * 1000))
-        secret_enc = secret.encode("utf-8")
-        string_to_sign = f"{timestamp}\n{secret}"
-        hmac_code = hmac.new(
-            secret_enc, string_to_sign.encode("utf-8"), digestmod=hashlib.sha256
-        ).digest()
-        sign = urllib.parse.quote_plus(base64.b64encode(hmac_code))
-
-        # 发送消息
-        url = f"https://oapi.dingtalk.com/robot/send?access_token={token}&timestamp={timestamp}&sign={sign}"
-        headers = {"Content-Type": "application/json"}
-        data = {"msgtype": "text", "text": {"content": f"「论坛签到通知」\n{content}"}}
-
-        response = scraper.post(url, json=data, headers=headers)
-        response.raise_for_status()
-        print("钉钉消息推送成功")
-
-    except Exception as e:
-        print(f"钉钉消息推送失败：{str(e)}")
-
-
 def send_panel_notification(title, content):
     """
     发送消息到呆呆面板通知系统
@@ -366,16 +319,7 @@ def push_notification(forum_name, info, sign_result):
         f"操作时间：{get_current_time()}"
     )
 
-    try:
-        if env.dd_bot_enable:
-            send_dingtalk_message(env.dd_bot_token, env.dd_bot_secret, content)
-        else:
-            send_panel_notification(f"「{forum_name}签到」", content)
-    except Exception as e:
-        print(f"通知推送失败：{str(e)}")
-        print("请检查通知配置：")
-        print("1、本地运行：需开启DD_BOT_ENABLE并配置钉钉Token和Secret")
-        print("2、呆呆面板：需创建并启用默认推送或任务绑定的通知渠道")
+    send_panel_notification(f"「{forum_name}签到」", content)
 
 
 # ==============================================
