@@ -19,6 +19,11 @@ import urllib.parse
 
 import cloudscraper
 
+try:
+    from notify import send as send_notify
+except ImportError:
+    send_notify = None
+
 # ==============================================
 # 常量定义（Constant Definitions）
 # ==============================================
@@ -328,25 +333,22 @@ def send_dingtalk_message(token, secret, content):
         print(f"钉钉消息推送失败：{str(e)}")
 
 
-def send_ql_notification(title, content):
+def send_panel_notification(title, content):
     """
-    发送消息到青龙面板通知系统
+    发送消息到呆呆面板通知系统
 
     :param title: 消息标题
     :param content: 消息内容
     """
-    if not QLAPI:
-        print("非青龙环境，跳过青龙通知推送")
+    if send_notify is None:
+        print("未找到面板 notify.py，跳过通知推送")
         return
 
     try:
-        response = QLAPI.systemNotify({"title": title, "content": content})
-        if response.get("code") == 200:
-            print("青龙通知推送成功")
-        else:
-            print(f"青龙通知推送失败：{response.get('message', '未知错误')}")
+        send_notify(title, content)
+        print("呆呆面板通知推送完成")
     except Exception as e:
-        print(f"青龙通知推送失败：{str(e)}")
+        print(f"呆呆面板通知推送失败：{str(e)}")
 
 
 def push_notification(forum_name, info, sign_result):
@@ -368,12 +370,12 @@ def push_notification(forum_name, info, sign_result):
         if env.dd_bot_enable:
             send_dingtalk_message(env.dd_bot_token, env.dd_bot_secret, content)
         else:
-            send_ql_notification(f"「{forum_name}签到」", content)
+            send_panel_notification(f"「{forum_name}签到」", content)
     except Exception as e:
         print(f"通知推送失败：{str(e)}")
         print("请检查通知配置：")
         print("1、本地运行：需开启DD_BOT_ENABLE并配置钉钉Token和Secret")
-        print("2、青龙面板：需在系统设置中配置通知方式")
+        print("2、呆呆面板：需创建并启用默认推送或任务绑定的通知渠道")
 
 
 # ==============================================
